@@ -189,17 +189,7 @@
     "passwordRequired": "पासवर्ड आवश्यक है",
     "serverError": "सर्वर त्रुटि",
     "noResponse": "सर्वर से कोई प्रतिक्रिया नहीं। कृपया अपना इंटरनेट कनेक्शन जांचें।",
-    "continueWithGoogle": "Google के साथ जारी रखें",
-    "otpTitle": "दो-चरणीय प्रमाणीकरण (2FA)",
-    "otpSubtitle": "इस ईमेल पर भेजा गया 6-अंकीय सत्यापन कोड दर्ज करें:",
-    "enterOtp": "6-अंकीय कोड दर्ज करें",
-    "verifyAndLogin": "सत्यापित करें और लॉगिन करें",
-    "verifying": "सत्यापित हो रहा है...",
-    "resendCode": "कोड पुनः भेजें",
-    "resendIn": "{{seconds}}s में पुनः भेजें",
-    "backToSignIn": "साइन इन पर वापस जाएं",
-    "otpRequired": "कृपया पूरा 6-अंकीय कोड दर्ज करें",
-    "otpSentSuccess": "आपके ईमेल पर एक नया सत्यापन कोड भेजा गया है।"
+    "continueWithGoogle": "Google के साथ जारी रखें"
   },
   "forgotPassword": {
     "title": "पासवर्ड भूल गए",

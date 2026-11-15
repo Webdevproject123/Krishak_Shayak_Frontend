@@ -77,7 +77,6 @@ export const authService = {
         rememberMe,
       });
 
-      // If login completed directly (no 2FA required)
       if (response.data.token) {
         saveAuthState(response.data.token, response.data.user, rememberMe);
       }
@@ -85,39 +84,6 @@ export const authService = {
       return response.data;
     } catch (error) {
       console.error("Login error in service:", error);
-      throw error;
-    }
-  },
-
-  // 2FA OTP verification
-  verifyOtp: async (sessionId, otp, rememberMe = false) => {
-    try {
-      const response = await axios.post(`${API_URL}/auth/2fa/verify`, {
-        sessionId,
-        otp,
-        rememberMe,
-      });
-
-      if (response.data.token) {
-        saveAuthState(response.data.token, response.data.user, rememberMe);
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      throw error;
-    }
-  },
-
-  // Resend 2FA OTP
-  resendOtp: async (sessionId) => {
-    try {
-      const response = await axios.post(`${API_URL}/auth/2fa/resend`, {
-        sessionId,
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Resend OTP error:", error);
       throw error;
     }
   },
