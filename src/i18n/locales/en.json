@@ -10,7 +10,17 @@
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
-    "sellerDashboard": "Seller Dashboard"
+    "sellerDashboard": "Seller Dashboard",
+    "market": "Market",
+    "advice": "Advice",
+    "marketplaceDesc": "Buy and sell farm products directly",
+    "marketPriceDesc": "Live mandi prices from government data",
+    "cropAdviceDesc": "Crop suggestions for your land and season",
+    "weatherDesc": "Forecasts and alerts for farm planning",
+    "govtSchemesDesc": "Central and state schemes for farmers",
+    "cart": "Cart",
+    "menu": "Menu",
+    "switchLanguage": "Switch language"
   },
   "hero": {
     "title": "Empowering Farmers with Technology",

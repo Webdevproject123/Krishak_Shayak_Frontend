@@ -1,22 +1,70 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import {
+  FaStore,
+  FaChartLine,
+  FaSeedling,
+  FaCloudSun,
+  FaLandmark,
+  FaChevronDown,
+  FaTachometerAlt,
+  FaSignOutAlt,
+  FaBars,
+  FaTimes,
+} from "react-icons/fa";
 import { getCartItems } from "../services/marketplaceService";
 import { authService } from "../services/api";
 
+// Primary navigation: three top-level entries, the rest grouped beneath them.
+const NAV_GROUPS = [
+  {
+    id: "market",
+    labelKey: "navbar.market",
+    items: [
+      { to: "/marketplace", labelKey: "navbar.marketplace", descKey: "navbar.marketplaceDesc", Icon: FaStore },
+      { to: "/market-price", labelKey: "navbar.marketPrice", descKey: "navbar.marketPriceDesc", Icon: FaChartLine },
+    ],
+  },
+  {
+    id: "advice",
+    labelKey: "navbar.advice",
+    items: [
+      { to: "/crop-recommendation", labelKey: "navbar.cropAdvice", descKey: "navbar.cropAdviceDesc", Icon: FaSeedling },
+      { to: "/weather", labelKey: "navbar.weather", descKey: "navbar.weatherDesc", Icon: FaCloudSun },
+      { to: "/govt-schemes", labelKey: "navbar.govtSchemes", descKey: "navbar.govtSchemesDesc", Icon: FaLandmark },
+    ],
+  },
+];
+
+const HOVER_CLOSE_DELAY = 150; // ms; lets the pointer travel from trigger to panel
+
+const isPathActive = (pathname, to) =>
+  pathname === to || pathname.startsWith(`${to}/`);
+
+const topLinkClass = (active) =>
+  // Full-height link with a yellow indicator that grows along the bar's bottom edge
+  `relative flex items-center gap-1.5 h-16 px-3 text-[15px] font-medium transition-colors focus:outline-none focus-visible:bg-white/10 after:content-[''] after:absolute after:left-3 after:right-3 after:bottom-0 after:h-[3px] after:rounded-t-full after:bg-yellow-400 after:transition-transform after:duration-200 ${
+    active
+      ? "text-yellow-300 after:scale-x-100"
+      : "text-white/90 hover:text-white after:scale-x-0 hover:after:scale-x-100"
+  }`;
+
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null); // "market" | "advice" | "profile" | null
   const [cartCount, setCartCount] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const navRef = useRef(null);
+  const closeTimer = useRef(null);
 
   const toggleLanguage = () => {
-    const next = i18n.language === 'en' ? 'hi' : 'en';
-    i18n.changeLanguage(next);
+    i18n.changeLanguage(i18n.language === "en" ? "hi" : "en");
   };
 
   // Load cart count (can be called from event listener too)
@@ -30,146 +78,200 @@ const Navbar = () => {
   };
 
   useEffect(() => {
-    // Check if user is authenticated
-    const checkAuthStatus = () => {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const currentUser = authService.getCurrentUser();
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    const currentUser = authService.getCurrentUser();
+    if (token && currentUser) {
+      setIsAuthenticated(true);
+      setUser(currentUser);
+    } else {
+      setIsAuthenticated(false);
+      setUser(null);
+    }
 
-      if (token && currentUser) {
-        setIsAuthenticated(true);
-        setUser(currentUser);
-      } else {
-        setIsAuthenticated(false);
-        setUser(null);
-      }
-    };
-
-    // Initial load
     loadCartCount();
-    checkAuthStatus();
 
-    // Listen for cart updates from other components
+    // Any navigation closes whatever was open
+    setOpenMenu(null);
+    setIsMenuOpen(false);
+
     const onCartUpdated = () => loadCartCount();
     window.addEventListener("cartUpdated", onCartUpdated);
-
-    return () => {
-      window.removeEventListener("cartUpdated", onCartUpdated);
-    };
+    return () => window.removeEventListener("cartUpdated", onCartUpdated);
   }, [location]);
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  // Lift the bar off the page with a deeper shadow once content scrolls under it
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  const toggleProfile = () => {
-    setIsProfileOpen(!isProfileOpen);
+  // Close menus on outside click and Escape
+  useEffect(() => {
+    const onPointerDown = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) setOpenMenu(null);
+    };
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setOpenMenu(null);
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      clearTimeout(closeTimer.current);
+    };
+  }, []);
+
+  // Hover opens immediately; leaving closes after a short delay so the
+  // pointer can cross the gap between the trigger and the panel.
+  const hoverOpen = (id) => {
+    clearTimeout(closeTimer.current);
+    setOpenMenu(id);
+  };
+  const hoverClose = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setOpenMenu(null), HOVER_CLOSE_DELAY);
+  };
+  const toggleOpen = (id) => {
+    clearTimeout(closeTimer.current);
+    setOpenMenu((current) => (current === id ? null : id));
   };
 
   const handleLogout = () => {
     authService.logout();
     setIsAuthenticated(false);
     setUser(null);
+    setOpenMenu(null);
+    setIsMenuOpen(false);
     navigate("/");
   };
 
+  const dashboardPath =
+    user?.userType === "seller"
+      ? "/seller-dashboard"
+      : user?.userType === "buyer"
+      ? "/farmer-dashboard"
+      : null;
+  const dashboardLabel =
+    user?.userType === "seller" ? t("navbar.sellerDashboard") : t("navbar.dashboard");
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "";
+  const initial = firstName.charAt(0).toUpperCase() || "?";
+
   return (
-    <nav className="bg-green-700 shadow-md sticky top-0 z-50">
+    <nav
+      ref={navRef}
+      className={`sticky top-0 z-50 bg-gradient-to-r from-green-800 via-green-700 to-green-700 transition-shadow duration-300 ${
+        isScrolled ? "shadow-lg shadow-green-950/30" : "shadow-sm"
+      }`}
+    >
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center py-4">
+        <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link to="/" className="group flex items-center gap-2.5 shrink-0">
             <img
               src="/favicon/favicon.png"
               alt="Krishak Shayak Logo"
-              className="h-8 w-8 rounded-full object-cover"
+              className="h-9 w-9 rounded-full object-cover ring-2 ring-white/25 transition group-hover:ring-yellow-300/70"
             />
-            <span className="text-white font-bold text-xl">Krishak Shayak</span>
+            <span className="text-white font-bold text-xl tracking-tight whitespace-nowrap">
+              Krishak Shayak
+            </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link to="/" className="text-white hover:text-yellow-300 transition">{t('navbar.home')}</Link>
-            <Link to="/marketplace" className="text-white hover:text-yellow-300 transition">{t('navbar.marketplace')}</Link>
-            <Link to="/market-price" className="text-white hover:text-yellow-300 transition">{t('navbar.marketPrice')}</Link>
-            <Link to="/weather" className="text-white hover:text-yellow-300 transition">{t('navbar.weather')}</Link>
-            <Link to="/crop-recommendation" className="text-white hover:text-yellow-300 transition">{t('navbar.cropAdvice')}</Link>
-            <Link to="/govt-schemes" className="text-white hover:text-yellow-300 transition">{t('navbar.govtSchemes')}</Link>
-            {isAuthenticated && user?.userType === "seller" && (
-              <Link to="/seller-dashboard" className="text-white hover:text-yellow-300 transition">{t('navbar.dashboard')}</Link>
-            )}
-            {isAuthenticated && user?.userType === "buyer" && (
-              <Link to="/farmer-dashboard" className="text-white hover:text-yellow-300 transition">{t('navbar.dashboard')}</Link>
-            )}
+          {/* Desktop navigation */}
+          <div className="hidden md:flex items-stretch gap-2 lg:gap-6">
+            <NavLink to="/" end className={({ isActive }) => topLinkClass(isActive)}>
+              {t("navbar.home")}
+            </NavLink>
+
+            {NAV_GROUPS.map((group) => {
+              const isOpen = openMenu === group.id;
+              const isActive = group.items.some((item) =>
+                isPathActive(location.pathname, item.to)
+              );
+              return (
+                <div
+                  key={group.id}
+                  className="relative"
+                  onMouseEnter={() => hoverOpen(group.id)}
+                  onMouseLeave={hoverClose}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen(group.id)}
+                    aria-haspopup="true"
+                    aria-expanded={isOpen}
+                    className={topLinkClass(isActive || isOpen)}
+                  >
+                    {t(group.labelKey)}
+                    <FaChevronDown
+                      className={`h-3 w-3 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    // the top padding keeps the hover area continuous between trigger and panel
+                    <div className="absolute left-0 top-full pt-2 z-50">
+                      <div className="w-72 rounded-xl bg-white shadow-xl ring-1 ring-black/5 p-2 origin-top animate-menu-in motion-reduce:animate-none">
+                        {group.items.map((item) => {
+                          const { to, labelKey, descKey } = item;
+                          const Icon = item.Icon;
+                          const itemActive = isPathActive(location.pathname, to);
+                          return (
+                            <Link
+                              key={to}
+                              to={to}
+                              onClick={() => setOpenMenu(null)}
+                              className={`flex items-start gap-3 rounded-lg p-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 ${
+                                itemActive ? "bg-green-50" : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                                <Icon className="h-4 w-4" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold text-gray-900">
+                                  {t(labelKey)}
+                                </span>
+                                <span className="block text-xs text-gray-500 leading-snug mt-0.5">
+                                  {t(descKey)}
+                                </span>
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* User & Cart Menu */}
-          <div className="flex items-center space-x-4">
-            {/* Language Toggle */}
+          {/* Right side: language, cart, account */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
+              type="button"
               onClick={toggleLanguage}
+              title={t("navbar.switchLanguage")}
+              aria-label={t("navbar.switchLanguage")}
               className="hidden md:flex items-center gap-1 bg-white bg-opacity-20 hover:bg-opacity-30 text-white text-sm font-semibold px-3 py-1.5 rounded-full transition-all border border-white border-opacity-30"
-              title="Switch Language"
             >
-              <span>{i18n.language === 'en' ? '🇮🇳 हिंदी' : '🇬🇧 English'}</span>
+              <span>{i18n.language === "en" ? "🇮🇳 हिंदी" : "🇬🇧 English"}</span>
             </button>
-
-            {/* Show either login/register buttons or user info & logout button */}
-            <div className="hidden md:flex items-center space-x-3">
-              {!isAuthenticated ? (
-                <>
-                  <Link
-                    to="/login"
-                    className="flex items-center bg-yellow-400 hover:bg-yellow-500 text-green-800 font-medium py-1.5 px-4 rounded transition-colors"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm1 4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1V8a1 1 0 00-1-1H4zm7 4a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-                    </svg>
-                    {t('navbar.login')}
-                  </Link>
-                  <Link to="/register" className="flex items-center text-white hover:text-yellow-300 transition-colors">
-                    {t('navbar.register')}
-                  </Link>
-                </>
-              ) : (
-                <div className="flex items-center">
-                  <div className="relative">
-                    <button
-                      onClick={toggleProfile}
-                      className="flex items-center text-white hover:text-yellow-300 transition-colors focus:outline-none"
-                    >
-                      <span className="mr-2">{user?.name}</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    {isProfileOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                        {user?.userType === "seller" && (
-                          <Link to="/seller-dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setIsProfileOpen(false)}>
-                            {t('navbar.sellerDashboard')}
-                          </Link>
-                        )}
-                        {user?.userType === "buyer" && (
-                          <Link to="/farmer-dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => setIsProfileOpen(false)}>
-                            {t('navbar.dashboard')}
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => { handleLogout(); setIsProfileOpen(false); }}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          {t('navbar.logout')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
 
             <Link
               to="/cart"
-              className="relative text-white hover:text-yellow-300"
+              aria-label={t("navbar.cart")}
+              title={t("navbar.cart")}
+              className="relative text-white hover:text-yellow-300 transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -192,91 +294,195 @@ const Navbar = () => {
               )}
             </Link>
 
+            {/* Account (desktop) */}
+            <div className="hidden md:block">
+              {!isAuthenticated ? (
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/login"
+                    className="text-white text-sm font-medium hover:text-yellow-300 transition-colors"
+                  >
+                    {t("navbar.login")}
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="bg-yellow-400 hover:bg-yellow-300 text-green-900 text-sm font-semibold py-2 px-4 rounded-full transition-colors"
+                  >
+                    {t("navbar.register")}
+                  </Link>
+                </div>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen("profile")}
+                    aria-haspopup="true"
+                    aria-expanded={openMenu === "profile"}
+                    className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-white hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-400 text-green-900 text-sm font-bold">
+                      {initial}
+                    </span>
+                    <span className="hidden lg:block text-sm font-medium max-w-[8rem] truncate">
+                      {firstName}
+                    </span>
+                    <FaChevronDown
+                      className={`h-3 w-3 transition-transform duration-200 ${
+                        openMenu === "profile" ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {openMenu === "profile" && (
+                    <div className="absolute right-0 top-full mt-4 w-60 rounded-xl bg-white shadow-xl ring-1 ring-black/5 py-2 z-50 origin-top animate-menu-in motion-reduce:animate-none">
+                      <div className="px-4 pb-2 mb-1 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {user?.name}
+                        </p>
+                        {user?.email && (
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        )}
+                      </div>
+                      {dashboardPath && (
+                        <Link
+                          to={dashboardPath}
+                          onClick={() => setOpenMenu(null)}
+                          className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <FaTachometerAlt className="h-4 w-4 text-green-700" />
+                          {dashboardLabel}
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <FaSignOutAlt className="h-4 w-4" />
+                        {t("navbar.logout")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Mobile menu button */}
             <button
-              onClick={toggleMenu}
-              className="md:hidden text-white hover:text-yellow-300 focus:outline-none"
+              type="button"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-label={t("navbar.menu")}
+              aria-expanded={isMenuOpen}
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-full text-white hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isMenuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              {isMenuOpen ? <FaTimes className="h-5 w-5" /> : <FaBars className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile navigation: same grouping, laid out as labelled sections */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-green-600">
-            <Link to="/" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.home')}</Link>
-            <Link to="/marketplace" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.marketplace')}</Link>
-            <Link to="/market-price" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.marketPrice')}</Link>
-            <Link to="/weather" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.weather')}</Link>
-            <Link to="/crop-recommendation" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.cropAdvice')}</Link>
-            <Link to="/govt-schemes" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.govtSchemes')}</Link>
-
-            {isAuthenticated && user?.userType === "seller" && (
-              <Link to="/seller-dashboard" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.dashboard')}</Link>
-            )}
-            {isAuthenticated && user?.userType === "buyer" && (
-              <Link to="/farmer-dashboard" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>{t('navbar.dashboard')}</Link>
-            )}
-
-            <div className="border-t border-green-600 my-2"></div>
-
-            {!isAuthenticated ? (
-              <>
-                <Link to="/login" className="flex items-center py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm1 4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1V8a1 1 0 00-1-1H4zm7 4a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-                  </svg>
-                  {t('navbar.login')}
-                </Link>
-                <Link to="/register" className="block py-2 text-white hover:bg-green-600 px-4 rounded" onClick={() => setIsMenuOpen(false)}>
-                  {t('navbar.register')}
-                </Link>
-              </>
-            ) : (
-              <>
-                {user && (
-                  <div className="px-4 py-2 text-white font-medium">Hello, {user.name}</div>
-                )}
-                <button
-                  onClick={() => { handleLogout(); setIsMenuOpen(false); }}
-                  className="block w-full text-left py-2 text-white hover:bg-green-600 px-4 rounded"
-                >
-                  {t('navbar.logout')}
-                </button>
-              </>
+          <div className="md:hidden pb-4 border-t border-white/15 max-h-[calc(100vh-4rem)] overflow-y-auto">
+            {isAuthenticated && user && (
+              <div className="flex items-center gap-3 px-2 py-3 border-b border-green-600">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400 text-green-900 font-bold">
+                  {initial}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-white font-medium truncate">{user.name}</p>
+                  {user.email && (
+                    <p className="text-green-100 text-xs truncate">{user.email}</p>
+                  )}
+                </div>
+              </div>
             )}
 
-            {/* Mobile Language Toggle */}
-            <div className="border-t border-green-600 my-2"></div>
-            <button
-              onClick={() => { toggleLanguage(); setIsMenuOpen(false); }}
-              className="flex items-center gap-2 py-2 px-4 text-white hover:bg-green-600 rounded w-full"
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `block mt-2 px-3 py-2.5 rounded-md font-medium ${
+                  isActive ? "bg-green-800 text-yellow-300" : "text-white hover:bg-green-600"
+                }`
+              }
             >
-              <span>{i18n.language === 'en' ? '🇮🇳 हिंदी में देखें' : '🇬🇧 View in English'}</span>
-            </button>
+              {t("navbar.home")}
+            </NavLink>
+
+            {NAV_GROUPS.map((group) => (
+              <div key={group.id} className="mt-3">
+                <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-green-200">
+                  {t(group.labelKey)}
+                </p>
+                {group.items.map((item) => {
+                  const Icon = item.Icon;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2.5 rounded-md ${
+                          isActive ? "bg-green-800 text-yellow-300" : "text-white hover:bg-green-600"
+                        }`
+                      }
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {t(item.labelKey)}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
+
+            <div className="border-t border-green-600 mt-3 pt-2">
+              {isAuthenticated && dashboardPath && (
+                <NavLink
+                  to={dashboardPath}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-md ${
+                      isActive ? "bg-green-800 text-yellow-300" : "text-white hover:bg-green-600"
+                    }`
+                  }
+                >
+                  <FaTachometerAlt className="h-4 w-4 shrink-0" />
+                  {dashboardLabel}
+                </NavLink>
+              )}
+
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                className="flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-white hover:bg-green-600"
+              >
+                <span>{i18n.language === "en" ? "🇮🇳 हिंदी में देखें" : "🇬🇧 View in English"}</span>
+              </button>
+
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-white hover:bg-green-600"
+                >
+                  <FaSignOutAlt className="h-4 w-4 shrink-0" />
+                  {t("navbar.logout")}
+                </button>
+              ) : (
+                <div className="flex gap-3 px-3 pt-3">
+                  <Link
+                    to="/login"
+                    className="flex-1 text-center border border-white/40 text-white font-medium py-2 rounded-full hover:bg-green-600"
+                  >
+                    {t("navbar.login")}
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="flex-1 text-center bg-yellow-400 text-green-900 font-semibold py-2 rounded-full hover:bg-yellow-300"
+                  >
+                    {t("navbar.register")}
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

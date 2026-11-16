@@ -2,7 +2,7 @@
   "navbar": {
     "home": "होम",
     "cropAdvice": "फसल सुझाव",
-    "marketplace": "बाज़ार",
+    "marketplace": "किसान बाज़ार",
     "marketPrice": "बाज़ार भाव",
     "weather": "मौसम",
     "govtSchemes": "सरकारी योजनाएं",
@@ -10,7 +10,17 @@
     "login": "लॉगिन",
     "register": "रजिस्टर",
     "logout": "लॉगआउट",
-    "sellerDashboard": "विक्रेता डैशबोर्ड"
+    "sellerDashboard": "विक्रेता डैशबोर्ड",
+    "market": "बाज़ार",
+    "advice": "सलाह",
+    "marketplaceDesc": "कृषि उत्पाद सीधे खरीदें और बेचें",
+    "marketPriceDesc": "सरकारी आंकड़ों से ताज़ा मंडी भाव",
+    "cropAdviceDesc": "आपकी ज़मीन और मौसम के अनुसार फसल सुझाव",
+    "weatherDesc": "खेती की योजना के लिए पूर्वानुमान और चेतावनी",
+    "govtSchemesDesc": "किसानों के लिए केंद्र और राज्य की योजनाएं",
+    "cart": "कार्ट",
+    "menu": "मेनू",
+    "switchLanguage": "भाषा बदलें"
   },
   "hero": {
     "title": "किसानों को तकनीक से सशक्त बनाना",
